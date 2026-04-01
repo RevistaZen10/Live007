@@ -380,6 +380,105 @@ body::after {
   opacity: 0;
   pointer-events: none;
 }
+
+/* ── TEXT CHAT OVERLAY ── */
+#chatOverlay {
+  display: none;
+  position: absolute;
+  bottom: 90px;
+  left: 16px;
+  width: clamp(240px, 35vw, 360px);
+  max-height: 45vh;
+  z-index: 35;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+#chatOverlay.visible { display: flex; }
+
+#chatMessages {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow-y: auto;
+  max-height: calc(45vh - 48px);
+  padding-right: 4px;
+  scrollbar-width: none;
+}
+#chatMessages::-webkit-scrollbar { display: none; }
+
+.chat-bubble {
+  max-width: 85%;
+  padding: 8px 12px;
+  border-radius: 16px;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  word-break: break-word;
+  animation: bubbleIn 0.25s cubic-bezier(0.16,1,0.3,1) both;
+  pointer-events: all;
+}
+@keyframes bubbleIn {
+  from { opacity: 0; transform: translateY(8px) scale(0.95); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.chat-bubble.mine {
+  background: linear-gradient(135deg, #c77dff, #7b2fff);
+  color: #fff;
+  align-self: flex-end;
+  box-shadow: 0 4px 16px rgba(199,125,255,0.35);
+}
+.chat-bubble.theirs {
+  background: rgba(255,255,255,0.12);
+  color: #f0f0ff;
+  align-self: flex-start;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255,255,255,0.1);
+}
+
+/* Input de texto no bottomBar */
+#chatInputRow {
+  display: none;
+  width: 100%;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+  pointer-events: all;
+}
+#chatInputRow.visible { display: flex; }
+
+#chatInput {
+  flex: 1;
+  padding: 11px 18px;
+  border-radius: 100px;
+  border: 1.5px solid rgba(255,255,255,0.18);
+  background: rgba(255,255,255,0.06);
+  color: #fff;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.9rem;
+  outline: none;
+  backdrop-filter: blur(12px);
+  transition: border-color 0.2s;
+}
+#chatInput::placeholder { color: rgba(255,255,255,0.35); }
+#chatInput:focus { border-color: var(--accent); }
+
+#chatSendBtn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: none;
+  background: linear-gradient(135deg, #c77dff, #48bfe3);
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: transform 0.2s, box-shadow 0.2s;
+  box-shadow: 0 4px 16px rgba(199,125,255,0.3);
+}
+#chatSendBtn:hover { transform: scale(1.1); box-shadow: 0 6px 24px rgba(199,125,255,0.5); }
+#chatSendBtn:active { transform: scale(0.97); }
 </style>
 </head>
 <body>
@@ -433,6 +532,11 @@ body::after {
     <div class="s-text">Clique em <strong>PROCURAR</strong> para encontrar alguém</div>
   </div>
 
+  <!-- Text chat overlay (visível quando conectado) -->
+  <div id="chatOverlay">
+    <div id="chatMessages"></div>
+  </div>
+
   <!-- Controls -->
   <div id="bottomBar">
     <button id="findBtn" onclick="findPartner()">
@@ -441,6 +545,14 @@ body::after {
       </svg>
       PROCURAR NOVO USUÁRIO
     </button>
+    <div id="chatInputRow">
+      <input id="chatInput" type="text" placeholder="Mensagem..." maxlength="500" />
+      <button id="chatSendBtn" onclick="sendChatMessage()" title="Enviar">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+        </svg>
+      </button>
+    </div>
   </div>
 </div>
 
@@ -451,19 +563,53 @@ body::after {
 // ─────────────────────────────
 //  CONSTANTES DE REDE
 // ─────────────────────────────
-const _P  = 'cc24_';
-const _PS = { host: '0.peerjs.com', port: 443, path: '/', secure: true };
+const _P   = 'cc24_';
 const _API = 'https://0.peerjs.com/peerjs/peers';
+
+// Configuração P2P robusta (baseada no Chat_Desktop)
+const _ICE = {
+  iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+    { urls: 'stun:stun2.l.google.com:19302' },
+    { urls: 'stun:stun3.l.google.com:19302' },
+    { urls: 'stun:stun4.l.google.com:19302' },
+    { urls: 'stun:stun.ekiga.net:3478' },
+    { urls: 'stun:stun.voipbuster.com:3478' },
+    { urls: 'stun:stun.voipstunt.com:3478' },
+    { urls: 'stun:stun.services.mozilla.com:3478' },
+    { urls: 'stun:stun.stunprotocol.org:3478' },
+    { urls: 'stun:stun.counterpath.com:3478' },
+    { urls: 'stun:stun.sipgate.net:3478' },
+    { urls: 'stun:stun.nextcloud.com:3478' },
+    { urls: 'stun:stun.sip.us:3478' }
+  ],
+  sdpSemantics: 'unified-plan',
+  iceTransportPolicy: 'all',
+  bundlePolicy: 'max-bundle',
+  rtcpMuxPolicy: 'require',
+  iceCandidatePoolSize: 10
+};
+
+const _PS = {
+  host: '0.peerjs.com',
+  port: 443,
+  path: '/',
+  secure: true,
+  config: _ICE,
+  debug: 1
+};
 
 // ─────────────────────────────
 //  ESTADO
 // ─────────────────────────────
-let _g = null;   // meu gênero
-let _peer = null;
-let _pid  = null;
-let _stream = null;
-let _call = null;
-let _busy = false;
+let _g       = null;   // meu gênero
+let _peer    = null;
+let _pid     = null;
+let _stream  = null;
+let _call    = null;
+let _dataConn = null;  // canal de dados P2P (text chat)
+let _busy    = false;
 
 // ─────────────────────────────
 //  GÊNERO
@@ -489,31 +635,36 @@ async function startApp() {
   }
 
   document.getElementById('loginScreen').style.display = 'none';
-  document.getElementById('chatScreen').style.display = 'block';
+  document.getElementById('chatScreen').style.display  = 'block';
   document.getElementById('myVideo').srcObject = _stream;
 
   const badges = { m: '♂ Homem', f: '♀ Mulher', l: '♀♀ Lésbica' };
   document.getElementById('myBadge').textContent = badges[_g];
 
+  // Enter key envia mensagem
+  document.getElementById('chatInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') sendChatMessage();
+  });
+
   _conectar();
 }
 
 // ─────────────────────────────
-//  PEERJS
+//  PEERJS — INICIALIZAÇÃO
 // ─────────────────────────────
 function _uid() {
   return Math.random().toString(36).substring(2, 10);
 }
 
 function _conectar() {
-  _pid = _P + _g + '_' + _uid();
+  _pid  = _P + _g + '_' + _uid();
   _peer = new Peer(_pid, _PS);
 
   _peer.on('open', () => {
     setStatus('👋', 'Clique em <strong>PROCURAR</strong> para encontrar alguém');
   });
 
-  // ── Chamadas recebidas
+  // ── Chamadas de vídeo recebidas ──────────────────────
   _peer.on('call', (call) => {
     const cid = call.peer || '';
 
@@ -524,20 +675,26 @@ function _conectar() {
       return;
     }
 
-    // Se já em chamada, rejeita
     if (_call) { call.close(); return; }
 
-    // Verifica compatibilidade de gênero
     const cg = _parseGender(cid);
     if (!_compat(_g, cg)) { call.close(); return; }
 
-    // Atende chamada
     _call = call;
     call.answer(_stream);
     call.on('stream', s => _mostrarParceiro(s));
-    call.on('close', _parcDesconectou);
-    call.on('error', _parcDesconectou);
+    call.on('close',  _parcDesconectou);
+    call.on('error',  _parcDesconectou);
     setStatus(null);
+  });
+
+  // ── Canal de dados recebido (text chat) ──────────────
+  _peer.on('connection', (conn) => {
+    // Aceita apenas conexões compatíveis (mesmo par da chamada de vídeo ativa)
+    const cg = _parseGender(conn.peer);
+    if (!_compat(_g, cg)) { conn.close(); return; }
+
+    _setupDataConn(conn);
   });
 
   _peer.on('error', e => {
@@ -550,11 +707,73 @@ function _conectar() {
 }
 
 // ─────────────────────────────
-//  COMPATIBILIDADE
+//  CANAL DE DADOS (text chat)
+// ─────────────────────────────
+function _setupDataConn(conn) {
+  _dataConn = conn;
+
+  conn.on('open', () => {
+    _mostrarChatInput(true);
+  });
+
+  conn.on('data', (data) => {
+    if (data && data.type === 'chat' && typeof data.text === 'string') {
+      _addBubble(data.text, false);
+    }
+  });
+
+  conn.on('close', () => {
+    _dataConn = null;
+    _mostrarChatInput(false);
+  });
+
+  conn.on('error', () => {
+    _dataConn = null;
+    _mostrarChatInput(false);
+  });
+}
+
+function _mostrarChatInput(visivel) {
+  const row = document.getElementById('chatInputRow');
+  const ov  = document.getElementById('chatOverlay');
+  if (visivel) {
+    row.classList.add('visible');
+    ov.classList.add('visible');
+  } else {
+    row.classList.remove('visible');
+    ov.classList.remove('visible');
+    document.getElementById('chatMessages').innerHTML = '';
+  }
+}
+
+function _addBubble(text, mine) {
+  const box = document.getElementById('chatMessages');
+  const el  = document.createElement('div');
+  el.className = 'chat-bubble ' + (mine ? 'mine' : 'theirs');
+  el.textContent = text;
+  box.appendChild(el);
+  box.scrollTop = box.scrollHeight;
+
+  // Remove bolhas antigas se passar de 40
+  while (box.children.length > 40) box.removeChild(box.firstChild);
+}
+
+function sendChatMessage() {
+  const input = document.getElementById('chatInput');
+  const text  = input.value.trim();
+  if (!text || !_dataConn || !_dataConn.open) return;
+
+  _dataConn.send({ type: 'chat', text });
+  _addBubble(text, true);
+  input.value = '';
+  input.focus();
+}
+
+// ─────────────────────────────
+//  COMPATIBILIDADE DE GÊNERO
 // ─────────────────────────────
 function _parseGender(pid) {
-  const s = pid.replace(_P, '').split('_');
-  return s[0];
+  return pid.replace(_P, '').split('_')[0];
 }
 function _compat(a, b) {
   if (a === 'm') return b === 'f';
@@ -574,7 +793,10 @@ function _alvo() {
 async function findPartner() {
   if (_busy) return;
 
-  if (_call) { _call.close(); _call = null; }
+  // Encerra chamada e canal de dados anteriores
+  if (_call)     { _call.close();     _call = null; }
+  if (_dataConn) { _dataConn.close(); _dataConn = null; }
+  _mostrarChatInput(false);
 
   _busy = true;
   document.getElementById('findBtn').disabled = true;
@@ -586,7 +808,7 @@ async function findPartner() {
   const alvoPrefix = _P + _alvo() + '_';
 
   try {
-    const res = await fetch(_API + '?ts=' + Date.now());
+    const res   = await fetch(_API + '?ts=' + Date.now());
     const todos = await res.json();
 
     const disponiveis = todos.filter(id =>
@@ -601,7 +823,6 @@ async function findPartner() {
       return;
     }
 
-    // Embaralha e tenta chamar
     const lista = disponiveis.sort(() => Math.random() - 0.5);
     let ok = false;
 
@@ -628,11 +849,15 @@ function _liberar() {
 }
 
 // ─────────────────────────────
-//  TENTAR CHAMADA
+//  TENTAR CHAMADA + DADOS
 // ─────────────────────────────
 function _tentar(pid) {
   return new Promise(resolve => {
-    const timer = setTimeout(() => { try { c.close(); } catch(_){} resolve(false); }, 9000);
+    const timer = setTimeout(() => {
+      try { c.close(); } catch(_) {}
+      resolve(false);
+    }, 9000);
+
     const c = _peer.call(pid, _stream);
     if (!c) { clearTimeout(timer); resolve(false); return; }
 
@@ -640,15 +865,23 @@ function _tentar(pid) {
       clearTimeout(timer);
       _call = c;
       _mostrarParceiro(s);
+
+      // Abre canal de dados para text chat após vídeo conectar
+      try {
+        const dc = _peer.connect(pid, { reliable: true });
+        _setupDataConn(dc);
+      } catch(_) {}
+
       resolve(true);
     });
+
     c.on('close', () => { if (_call === c) _parcDesconectou(); });
     c.on('error', () => { clearTimeout(timer); resolve(false); });
   });
 }
 
 // ─────────────────────────────
-//  VIDEO
+//  VÍDEO
 // ─────────────────────────────
 function _mostrarParceiro(stream) {
   document.getElementById('partnerVideo').srcObject = stream;
@@ -656,9 +889,11 @@ function _mostrarParceiro(stream) {
 }
 
 function _parcDesconectou() {
-  _call = null;
+  _call     = null;
+  _dataConn = null;
   document.getElementById('partnerVideo').srcObject = null;
   document.getElementById('findBtn').disabled = false;
+  _mostrarChatInput(false);
   setStatus('👋', 'Parceiro desconectou.<br>Clique em <strong>PROCURAR</strong> para encontrar outro.');
 }
 
