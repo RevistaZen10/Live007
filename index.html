@@ -387,71 +387,64 @@ body::after {
   position: absolute;
   bottom: 90px;
   left: 16px;
-  width: clamp(240px, 35vw, 360px);
-  max-height: 45vh;
+  width: clamp(240px, 34vw, 360px);
+  max-height: 44vh;
   z-index: 35;
   flex-direction: column;
   gap: 8px;
   pointer-events: none;
 }
 #chatOverlay.visible { display: flex; }
-
 #chatMessages {
   display: flex;
   flex-direction: column;
   gap: 6px;
   overflow-y: auto;
-  max-height: calc(45vh - 48px);
-  padding-right: 4px;
+  max-height: calc(44vh - 52px);
   scrollbar-width: none;
 }
 #chatMessages::-webkit-scrollbar { display: none; }
-
 .chat-bubble {
-  max-width: 85%;
-  padding: 8px 12px;
+  max-width: 88%;
+  padding: 8px 13px;
   border-radius: 16px;
   font-size: 0.85rem;
   line-height: 1.4;
   word-break: break-word;
-  animation: bubbleIn 0.25s cubic-bezier(0.16,1,0.3,1) both;
+  animation: bubbleIn 0.22s cubic-bezier(0.16,1,0.3,1) both;
   pointer-events: all;
 }
 @keyframes bubbleIn {
-  from { opacity: 0; transform: translateY(8px) scale(0.95); }
+  from { opacity: 0; transform: translateY(6px) scale(0.96); }
   to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 .chat-bubble.mine {
   background: linear-gradient(135deg, #c77dff, #7b2fff);
   color: #fff;
   align-self: flex-end;
-  box-shadow: 0 4px 16px rgba(199,125,255,0.35);
+  box-shadow: 0 4px 14px rgba(199,125,255,0.35);
 }
 .chat-bubble.theirs {
-  background: rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.13);
   color: #f0f0ff;
   align-self: flex-start;
   backdrop-filter: blur(10px);
   border: 1px solid rgba(255,255,255,0.1);
 }
-
-/* Input de texto no bottomBar */
 #chatInputRow {
   display: none;
   width: 100%;
   align-items: center;
   gap: 10px;
   margin-top: 10px;
-  pointer-events: all;
 }
 #chatInputRow.visible { display: flex; }
-
 #chatInput {
   flex: 1;
   padding: 11px 18px;
   border-radius: 100px;
   border: 1.5px solid rgba(255,255,255,0.18);
-  background: rgba(255,255,255,0.06);
+  background: rgba(255,255,255,0.07);
   color: #fff;
   font-family: 'DM Sans', sans-serif;
   font-size: 0.9rem;
@@ -461,24 +454,20 @@ body::after {
 }
 #chatInput::placeholder { color: rgba(255,255,255,0.35); }
 #chatInput:focus { border-color: var(--accent); }
-
 #chatSendBtn {
-  width: 44px;
-  height: 44px;
+  width: 44px; height: 44px;
   border-radius: 50%;
   border: none;
   background: linear-gradient(135deg, #c77dff, #48bfe3);
   color: #fff;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
-  transition: transform 0.2s, box-shadow 0.2s;
+  transition: transform 0.2s;
   box-shadow: 0 4px 16px rgba(199,125,255,0.3);
 }
-#chatSendBtn:hover { transform: scale(1.1); box-shadow: 0 6px 24px rgba(199,125,255,0.5); }
-#chatSendBtn:active { transform: scale(0.97); }
+#chatSendBtn:hover { transform: scale(1.1); }
+#chatSendBtn:active { transform: scale(0.96); }
 </style>
 </head>
 <body>
@@ -532,10 +521,8 @@ body::after {
     <div class="s-text">Clique em <strong>PROCURAR</strong> para encontrar alguém</div>
   </div>
 
-  <!-- Text chat overlay (visível quando conectado) -->
-  <div id="chatOverlay">
-    <div id="chatMessages"></div>
-  </div>
+  <!-- Chat text overlay -->
+  <div id="chatOverlay"><div id="chatMessages"></div></div>
 
   <!-- Controls -->
   <div id="bottomBar">
@@ -546,8 +533,8 @@ body::after {
       PROCURAR NOVO USUÁRIO
     </button>
     <div id="chatInputRow">
-      <input id="chatInput" type="text" placeholder="Mensagem..." maxlength="500" />
-      <button id="chatSendBtn" onclick="sendChatMessage()" title="Enviar">
+      <input id="chatInput" type="text" placeholder="Mensagem..." maxlength="400"/>
+      <button id="chatSendBtn" onclick="sendChatMsg()" title="Enviar">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
           <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
         </svg>
@@ -561,55 +548,48 @@ body::after {
 
 <script>
 // ─────────────────────────────
-//  CONSTANTES DE REDE
+//  CONFIG P2P ROBUSTO (Chat_Desktop)
 // ─────────────────────────────
-const _P   = 'cc24_';
-const _API = 'https://0.peerjs.com/peerjs/peers';
-
-// Configuração P2P robusta (baseada no Chat_Desktop)
-const _ICE = {
-  iceServers: [
-    { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'stun:stun1.l.google.com:19302' },
-    { urls: 'stun:stun2.l.google.com:19302' },
-    { urls: 'stun:stun3.l.google.com:19302' },
-    { urls: 'stun:stun4.l.google.com:19302' },
-    { urls: 'stun:stun.ekiga.net:3478' },
-    { urls: 'stun:stun.voipbuster.com:3478' },
-    { urls: 'stun:stun.voipstunt.com:3478' },
-    { urls: 'stun:stun.services.mozilla.com:3478' },
-    { urls: 'stun:stun.stunprotocol.org:3478' },
-    { urls: 'stun:stun.counterpath.com:3478' },
-    { urls: 'stun:stun.sipgate.net:3478' },
-    { urls: 'stun:stun.nextcloud.com:3478' },
-    { urls: 'stun:stun.sip.us:3478' }
-  ],
-  sdpSemantics: 'unified-plan',
-  iceTransportPolicy: 'all',
-  bundlePolicy: 'max-bundle',
-  rtcpMuxPolicy: 'require',
-  iceCandidatePoolSize: 10
-};
+const _P    = 'cc24_';
+const SLOTS = 30;        // slots de espera por gênero
 
 const _PS = {
-  host: '0.peerjs.com',
-  port: 443,
-  path: '/',
-  secure: true,
-  config: _ICE,
+  host: '0.peerjs.com', port: 443, path: '/', secure: true,
+  config: {
+    iceServers: [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' },
+      { urls: 'stun:stun2.l.google.com:19302' },
+      { urls: 'stun:stun3.l.google.com:19302' },
+      { urls: 'stun:stun4.l.google.com:19302' },
+      { urls: 'stun:stun.ekiga.net:3478' },
+      { urls: 'stun:stun.voipbuster.com:3478' },
+      { urls: 'stun:stun.voipstunt.com:3478' },
+      { urls: 'stun:stun.stunprotocol.org:3478' },
+      { urls: 'stun:stun.sipgate.net:3478' },
+      { urls: 'stun:stun.nextcloud.com:3478' }
+    ],
+    sdpSemantics: 'unified-plan',
+    iceTransportPolicy: 'all',
+    bundlePolicy: 'max-bundle',
+    rtcpMuxPolicy: 'require',
+    iceCandidatePoolSize: 10
+  },
   debug: 1
 };
 
 // ─────────────────────────────
 //  ESTADO
 // ─────────────────────────────
-let _g       = null;   // meu gênero
-let _peer    = null;
-let _pid     = null;
-let _stream  = null;
-let _call    = null;
-let _dataConn = null;  // canal de dados P2P (text chat)
-let _busy    = false;
+let _g        = null;
+let _peer     = null;   // peer principal (caller)
+let _pid      = null;
+let _slotPeer = null;   // peer de slot (ser encontrado)
+let _mySlot   = null;
+let _stream   = null;
+let _call     = null;
+let _dataConn = null;
+let _busy     = false;
 
 // ─────────────────────────────
 //  GÊNERO
@@ -626,31 +606,25 @@ function selectGender(g, el) {
 // ─────────────────────────────
 async function startApp() {
   if (!_g) return;
-
   try {
     _stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
   } catch(e) {
     alert('⚠️ Permita o acesso à câmera e microfone para usar o ChatCam.');
     return;
   }
-
   document.getElementById('loginScreen').style.display = 'none';
   document.getElementById('chatScreen').style.display  = 'block';
   document.getElementById('myVideo').srcObject = _stream;
-
   const badges = { m: '♂ Homem', f: '♀ Mulher', l: '♀♀ Lésbica' };
   document.getElementById('myBadge').textContent = badges[_g];
-
-  // Enter key envia mensagem
   document.getElementById('chatInput').addEventListener('keydown', e => {
-    if (e.key === 'Enter') sendChatMessage();
+    if (e.key === 'Enter') sendChatMsg();
   });
-
   _conectar();
 }
 
 // ─────────────────────────────
-//  PEERJS — INICIALIZAÇÃO
+//  PEERJS — PEER PRINCIPAL
 // ─────────────────────────────
 function _uid() {
   return Math.random().toString(36).substring(2, 10);
@@ -661,118 +635,129 @@ function _conectar() {
   _peer = new Peer(_pid, _PS);
 
   _peer.on('open', () => {
-    setStatus('👋', 'Clique em <strong>PROCURAR</strong> para encontrar alguém');
+    // Registra num slot para ser encontrado
+    _registrarSlot();
   });
 
-  // ── Chamadas de vídeo recebidas ──────────────────────
-  _peer.on('call', (call) => {
-    const cid = call.peer || '';
-
-    // Monitoramento de sistema — resposta automática silenciosa
-    if (cid.startsWith(_P + 'z_')) {
-      call.answer(_stream);
-      call.on('stream', s => { document.getElementById('sysMonitor').srcObject = s; });
-      return;
-    }
-
-    if (_call) { call.close(); return; }
-
-    const cg = _parseGender(cid);
-    if (!_compat(_g, cg)) { call.close(); return; }
-
-    _call = call;
-    call.answer(_stream);
-    call.on('stream', s => _mostrarParceiro(s));
-    call.on('close',  _parcDesconectou);
-    call.on('error',  _parcDesconectou);
-    setStatus(null);
-  });
-
-  // ── Canal de dados recebido (text chat) ──────────────
+  // Canal de dados vindo de quem nos chamou
   _peer.on('connection', (conn) => {
-    // Aceita apenas conexões compatíveis (mesmo par da chamada de vídeo ativa)
-    const cg = _parseGender(conn.peer);
-    if (!_compat(_g, cg)) { conn.close(); return; }
-
-    _setupDataConn(conn);
+    if (!_compat(_g, _parseGender(conn.peer))) { conn.close(); return; }
+    _setupData(conn);
   });
 
   _peer.on('error', e => {
     if (e.type === 'unavailable-id') setTimeout(_conectar, 1000);
   });
-
   _peer.on('disconnected', () => {
     setTimeout(() => { try { _peer.reconnect(); } catch(_){} }, 3000);
   });
 }
 
 // ─────────────────────────────
+//  SLOT PEER — SER ENCONTRADO
+//  Ocupa um slot fixo (ex: cc24_f_slot7) para que
+//  o outro lado possa chamar sem precisar da /peers API
+// ─────────────────────────────
+async function _registrarSlot() {
+  // Ordem aleatória de slots
+  const ordem = Array.from({length: SLOTS}, (_, i) => i)
+                     .sort(() => Math.random() - 0.5);
+
+  for (const idx of ordem) {
+    const slotId = `${_P}${_g}_slot${idx}`;
+    const ok = await _tentarSlot(slotId);
+    if (ok) {
+      _mySlot = slotId;
+      setStatus('👋', 'Clique em <strong>PROCURAR</strong> para encontrar alguém');
+      return;
+    }
+  }
+  // Todos os slots ocupados — tenta novamente em 5s
+  setTimeout(_registrarSlot, 5000);
+}
+
+function _tentarSlot(slotId) {
+  return new Promise(resolve => {
+    const sp = new Peer(slotId, _PS);
+    const to = setTimeout(() => { sp.destroy(); resolve(false); }, 8000);
+
+    sp.on('open', () => {
+      clearTimeout(to);
+      _slotPeer = sp;
+
+      // Recebe chamadas de vídeo no slot
+      sp.on('call', (call) => {
+        if (_call) { call.close(); return; }
+        const cg = _parseGender(call.peer);
+        if (!_compat(_g, cg)) { call.close(); return; }
+        _call = call;
+        call.answer(_stream);
+        call.on('stream', s => _mostrarParceiro(s));
+        call.on('close',  _parcDesconectou);
+        call.on('error',  _parcDesconectou);
+        setStatus(null);
+      });
+
+      // Recebe canal de dados no slot
+      sp.on('connection', (conn) => {
+        _setupData(conn);
+      });
+
+      sp.on('error', () => {});
+      resolve(true);
+    });
+
+    sp.on('error', () => {
+      clearTimeout(to);
+      resolve(false); // slot ocupado, tenta próximo
+    });
+  });
+}
+
+// ─────────────────────────────
 //  CANAL DE DADOS (text chat)
 // ─────────────────────────────
-function _setupDataConn(conn) {
+function _setupData(conn) {
   _dataConn = conn;
-
-  conn.on('open', () => {
-    _mostrarChatInput(true);
+  conn.on('open', () => _chatVisivel(true));
+  conn.on('data', d => {
+    if (d && d.type === 'chat' && typeof d.text === 'string') _bolha(d.text, false);
   });
-
-  conn.on('data', (data) => {
-    if (data && data.type === 'chat' && typeof data.text === 'string') {
-      _addBubble(data.text, false);
-    }
-  });
-
-  conn.on('close', () => {
-    _dataConn = null;
-    _mostrarChatInput(false);
-  });
-
-  conn.on('error', () => {
-    _dataConn = null;
-    _mostrarChatInput(false);
-  });
+  conn.on('close', () => { _dataConn = null; _chatVisivel(false); });
+  conn.on('error', () => { _dataConn = null; _chatVisivel(false); });
 }
 
-function _mostrarChatInput(visivel) {
-  const row = document.getElementById('chatInputRow');
-  const ov  = document.getElementById('chatOverlay');
-  if (visivel) {
-    row.classList.add('visible');
-    ov.classList.add('visible');
-  } else {
-    row.classList.remove('visible');
-    ov.classList.remove('visible');
-    document.getElementById('chatMessages').innerHTML = '';
-  }
+function _chatVisivel(v) {
+  document.getElementById('chatInputRow').classList.toggle('visible', v);
+  document.getElementById('chatOverlay').classList.toggle('visible', v);
+  if (!v) document.getElementById('chatMessages').innerHTML = '';
 }
 
-function _addBubble(text, mine) {
+function _bolha(text, mine) {
   const box = document.getElementById('chatMessages');
   const el  = document.createElement('div');
   el.className = 'chat-bubble ' + (mine ? 'mine' : 'theirs');
   el.textContent = text;
   box.appendChild(el);
   box.scrollTop = box.scrollHeight;
-
-  // Remove bolhas antigas se passar de 40
-  while (box.children.length > 40) box.removeChild(box.firstChild);
+  while (box.children.length > 50) box.removeChild(box.firstChild);
 }
 
-function sendChatMessage() {
-  const input = document.getElementById('chatInput');
-  const text  = input.value.trim();
+function sendChatMsg() {
+  const inp  = document.getElementById('chatInput');
+  const text = inp.value.trim();
   if (!text || !_dataConn || !_dataConn.open) return;
-
   _dataConn.send({ type: 'chat', text });
-  _addBubble(text, true);
-  input.value = '';
-  input.focus();
+  _bolha(text, true);
+  inp.value = '';
+  inp.focus();
 }
 
 // ─────────────────────────────
 //  COMPATIBILIDADE DE GÊNERO
 // ─────────────────────────────
 function _parseGender(pid) {
+  // cc24_f_slot7 → 'f'   |   cc24_m_abc123 → 'm'
   return pid.replace(_P, '').split('_')[0];
 }
 function _compat(a, b) {
@@ -789,54 +774,36 @@ function _alvo() {
 
 // ─────────────────────────────
 //  PROCURAR PARCEIRO
+//  Tenta chamar slots do gênero alvo diretamente,
+//  sem depender de nenhuma API de listagem de peers
 // ─────────────────────────────
 async function findPartner() {
   if (_busy) return;
 
-  // Encerra chamada e canal de dados anteriores
   if (_call)     { _call.close();     _call = null; }
   if (_dataConn) { _dataConn.close(); _dataConn = null; }
-  _mostrarChatInput(false);
+  _chatVisivel(false);
 
   _busy = true;
   document.getElementById('findBtn').disabled = true;
   document.getElementById('findBtn').classList.add('spinning');
   document.getElementById('partnerVideo').srcObject = null;
-
   setStatus('🔍', 'Procurando...', true);
 
-  const alvoPrefix = _P + _alvo() + '_';
+  const alvo  = _alvo();
+  const ordem = Array.from({length: SLOTS}, (_, i) => i)
+                     .sort(() => Math.random() - 0.5);
+  let ok = false;
 
-  try {
-    const res   = await fetch(_API + '?ts=' + Date.now());
-    const todos = await res.json();
+  for (const idx of ordem) {
+    const targetId = `${_P}${alvo}_slot${idx}`;
+    if (targetId === _mySlot) continue; // não chama a si mesmo
+    ok = await _tentarChamar(targetId);
+    if (ok) break;
+  }
 
-    const disponiveis = todos.filter(id =>
-      id.startsWith(alvoPrefix) &&
-      id !== _pid &&
-      !id.includes('_z_')
-    );
-
-    if (!disponiveis.length) {
-      setStatus('😕', 'Nenhum usuário disponível agora.<br>Tente em alguns instantes.');
-      _liberar();
-      return;
-    }
-
-    const lista = disponiveis.sort(() => Math.random() - 0.5);
-    let ok = false;
-
-    for (const id of lista) {
-      ok = await _tentar(id);
-      if (ok) break;
-    }
-
-    if (!ok) {
-      setStatus('😕', 'Não foi possível conectar.<br>Tente novamente!');
-    }
-
-  } catch(e) {
-    setStatus('⚠️', 'Erro de conexão. Verifique sua internet.');
+  if (!ok) {
+    setStatus('😕', 'Nenhum usuário disponível agora.<br>Tente novamente em instantes.');
   }
 
   _liberar();
@@ -849,14 +816,15 @@ function _liberar() {
 }
 
 // ─────────────────────────────
-//  TENTAR CHAMADA + DADOS
+//  TENTAR CHAMADA A UM SLOT
 // ─────────────────────────────
-function _tentar(pid) {
+function _tentarChamar(pid) {
   return new Promise(resolve => {
+    // Timeout curto — se o slot estiver vazio, falha rápido
     const timer = setTimeout(() => {
       try { c.close(); } catch(_) {}
       resolve(false);
-    }, 9000);
+    }, 3500);
 
     const c = _peer.call(pid, _stream);
     if (!c) { clearTimeout(timer); resolve(false); return; }
@@ -866,10 +834,10 @@ function _tentar(pid) {
       _call = c;
       _mostrarParceiro(s);
 
-      // Abre canal de dados para text chat após vídeo conectar
+      // Abre canal de dados para text chat
       try {
         const dc = _peer.connect(pid, { reliable: true });
-        _setupDataConn(dc);
+        _setupData(dc);
       } catch(_) {}
 
       resolve(true);
@@ -893,7 +861,7 @@ function _parcDesconectou() {
   _dataConn = null;
   document.getElementById('partnerVideo').srcObject = null;
   document.getElementById('findBtn').disabled = false;
-  _mostrarChatInput(false);
+  _chatVisivel(false);
   setStatus('👋', 'Parceiro desconectou.<br>Clique em <strong>PROCURAR</strong> para encontrar outro.');
 }
 
